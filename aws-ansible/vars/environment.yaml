@@ -1,0 +1,60 @@
+---
+# region, image_id
+
+ec2_region: us-west-2
+image_id: ami-03d5c68bab01f3496
+
+# security groups to be created
+security_groups:
+
+  - name: ssh
+    desc: the security group for ssh
+    rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+
+  - name: web
+    desc: the security group for the web server 
+    rules:
+      - proto: tcp
+        from_port: "80"
+        to_port: "80"
+        cidr_ip: 0.0.0.0/0
+
+  
+# Instances to launch be launched.
+
+ec2_instances:
+
+  - instance_type: t2.micro
+    key_name: admin
+    image: "{{ image_id }}"
+    group: ['ssh']
+    instance_tags: 
+        Name: admin-instance
+    exact_count: 1
+    count_tag: 
+        Name: admin-instance
+
+  - instance_type: t2.micro
+    key_name: web
+    image: "{{ image_id }}"
+    assign_public_ip: true
+    group: ['web','ssh'] 
+    instance_tags: 
+        Name: web-server
+    exact_count: 1 
+    count_tag: 
+        Name: web-server
+
+  - instance_type: t2.micro
+    key_name: app
+    image: "{{ image_id }}"
+    group: ['ssh'] 
+    instance_tags: 
+        Name: app-server
+    exact_count: 1
+    count_tag: 
+        Name: app-server
