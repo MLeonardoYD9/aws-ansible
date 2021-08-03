@@ -1,0 +1,40 @@
+---
+- name: Create VPC
+  hosts: local
+  connection: local
+  gather_facts: False
+
+  vars_files:
+    - vars/environment.yaml
+    - vars/keys-aws.yaml
+
+
+  tasks:
+
+
+    - name: public subnet
+      ec2_vpc_subnet:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        state: present
+        vpc_id: "{{ vpc_id }}"
+        cidr: 172.22.1.0/24
+        az: "{{ aws_zonea }}"
+        resource_tags: { "admin" : "web" }
+      register: public_subnet
+        
+
+    - name: private subnet
+      ec2_vpc_subnet:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        state: present
+        vpc_id: "{{ vpc_id }}"
+        cidr: 172.22.2.0/24
+        az: "{{ aws_zoneb }}"
+        resource_tags: { "app" : "server" }
+      register: private_subnet
+
+

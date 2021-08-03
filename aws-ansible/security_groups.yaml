@@ -1,0 +1,25 @@
+---
+- name: security groups
+  hosts: local
+  connection: local
+  gather_facts: False
+
+  vars_files:
+    - vars/environment.yaml
+    - vars/keys-aws.yaml
+  
+  tasks:
+
+    - name: security groups
+      ec2_group:
+        name: "{{ item.name }}"
+        vpc_id: "{{ vpc_id }}"
+        description: "{{ item.desc }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        rules: "{{ item.rules }}"
+      with_items: "{{security_groups}}"
+
+
+

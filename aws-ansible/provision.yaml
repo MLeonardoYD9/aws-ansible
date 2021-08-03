@@ -1,6 +1,6 @@
 ---
-- name: Provision ec2 instances based on the environment
-  hosts: localhost
+- name: provision ec2 instances based on the environment
+  hosts: local
   connection: local
   gather_facts: False
 
@@ -11,36 +11,199 @@
   tasks:
 
 
-  - name: Create a keypair
-    ec2_key:
-      ec2_access_key: "{{ ec2_access_key }}"
-      ec2_secret_key: "{{ ec2_secret_key }}"
-      region: "{{ ec2_region }}"
-      name: ec2-instances
-    register: keypair
-
-  - name: Create security groups
-    ec2_group:
-      name: "{{ item.name }}"
-      description: "{{ item.desc }}"
-      rules: "{{ item.rules }}"
-      region: "{{ ec2_region }}"
-      ec2_access_key: "{{ ec2_access_key }}"
-      ec2_secret_key: "{{ ec2_secret_key }}"
-    with_items: "{{security_groups}}"
+    - name: creating vpc
+      ec2_vpc_net:
+        name: reto_aws
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        state: present
+        cidr_block: 172.22.0.0/16
+        resource_tags: { "aws" : "vpc" }
+      register: vpc
 
 
-  - name: Launch instances
-    ec2: 
-      region: "{{ ec2_region }}"
-      ec2_access_key: "{{ ec2_access_key }}"
-      ec2_secret_key: "{{ ec2_secret_key }}"
-      group: "{{ item.group }}"
-      instance_type: "{{ item.instance_type }}"
-      image: "{{ item.image }}"
-      instance_tags: "{{ item.instance_tags }}"
-      exact_count: "{{ item.exact_count }}"
-      count_tag: "{{ item.count_tag }}"
-      wait: true
-    register: ec2
-    with_items: "{{ec2_instances}}"
+    - name: public subnet
+      ec2_vpc_subnet:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        state: present
+        vpc_id: "{{ vpc_id }}"
+        cidr: 172.22.1.0/24
+        az: "{{ aws_zonea }}"
+        resource_tags: { "admin" : "web" }
+      register: public_subnet
+        
+
+    - name: private subnet
+      ec2_vpc_subnet:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        state: present
+        vpc_id: "{{ vpc_id }}"
+        cidr: 172.22.2.0/24
+        az: "{{ aws_zoneb }}"
+        resource_tags: { "app" : "server" }
+      register: private_subnet
+
+
+    - name: internet gateway
+      ec2_vpc_igw:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ aws_region }}"
+        state: present
+      register: igw
+
+
+    - name: public subnet route table
+      ec2_vpc_route_table:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ aws_region }}"
+        tags:
+          Name: public
+        subnets:
+          - "{{ subnet_public }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ internet_gateway }}"
+      register: public_route_table
+
+
+    - name: private subnet route table
+      ec2_vpc_route_table:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ aws_region }}"
+        tags:
+          Name: private
+        subnets:
+          - "{{ subnet_private }}"
+      register: private_route_table
+
+
+    - name: security groups
+      ec2_group:
+        name: "{{ item.name }}"
+        vpc_id: "{{ vpc_id }}"
+        description: "{{ item.desc }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        rules: "{{ item.rules }}"
+      with_items: "{{security_groups}}"
+
+
+    - name: create keypair admin
+      ec2_key:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        name: admin-instance
+      register: keypair
+
+
+    - name: create keypair web
+      ec2_key:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        name: web-instance
+      register: keypair
+
+
+    - name: create keypair app
+      ec2_key:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        name: app-server
+      register: keypair
+
+
+    - name: Write the key to a file
+      copy:
+        dest: "{{ dest1 }}"
+        content: "{{ keypair.key }}"
+        mode: 0600
+      when: keypair.changed
+
+
+    - name: Write the key to a file
+      copy:
+        dest: "{{ dest2 }}"
+        content: "{{ keypair.key }}"
+        mode: 0600
+      when: keypair.changed
+
+
+    - name: Write the key to a file
+      copy:
+        dest: "{{ dest3 }}"
+        content: "{{ keypair.key }}"
+        mode: 0600
+      when: keypair.changed
+
+
+    - name: create instance admin
+
+      ec2:
+        ec2_access_key: "{{ aws_access_key }}"
+        ec2_secret_key: "{{ aws_secret_key }}"
+        key_name: "{{ keypair1 }}"
+        region: "{{ aws_region }}"
+        instance_type: t2.micro
+        image: "{{ image_id }}"
+        wait: yes
+        group: ['ssh','outbound']
+        instance_tags: 
+          Name: admin-instance
+        exact_count: 1
+        count_tag: 
+          Name: admin-instance
+        vpc_subnet_id: "{{ subnet_public }}"
+        assign_public_ip: yes
+
+    - name: create instance web
+
+      ec2:
+        ec2_access_key: "{{ aws_access_key }}"
+        ec2_secret_key: "{{ aws_secret_key }}"
+        key_name: "{{ keypair2 }}"
+        region: "{{ aws_region }}"
+        instance_type: t2.micro
+        image: "{{ image_id }}"
+        wait: yes
+        group: ['web','ssh']
+        instance_tags: 
+          Name: web-server
+        exact_count: 1
+        count_tag: 
+          Name: web-server
+        vpc_subnet_id: "{{ subnet_public }}"
+        assign_public_ip: yes
+
+    - name: create instance app
+
+      ec2:
+        ec2_access_key: "{{ aws_access_key }}"
+        ec2_secret_key: "{{ aws_secret_key }}"
+        key_name: "{{ keypair3 }}"
+        region: "{{ aws_region }}"
+        instance_type: t2.micro
+        image: "{{ image_id }}"
+        wait: yes
+        group: ['ssh']
+        instance_tags: 
+          Name: app-server
+        exact_count: 1
+        count_tag: 
+          Name: app-server
+        vpc_subnet_id: "{{ subnet_private }}"
+      

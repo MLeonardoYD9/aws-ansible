@@ -1,0 +1,24 @@
+---
+- name: Create VPC
+  hosts: local
+  connection: local
+  gather_facts: False
+
+  vars_files:
+    - vars/environment.yaml
+    - vars/keys-aws.yaml
+
+
+  tasks:
+
+
+    - name: creating vpc
+      ec2_vpc_net:
+        name: reto_aws
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+        state: present
+        cidr_block: 172.22.0.0/16
+        resource_tags: { "aws" : "vpc" }
+      register: vpc

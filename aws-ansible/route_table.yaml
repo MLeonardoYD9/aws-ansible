@@ -1,0 +1,41 @@
+---
+- name: Create VPC
+  hosts: local
+  connection: local
+  gather_facts: False
+
+  vars_files:
+    - vars/environment.yaml
+    - vars/keys-aws.yaml
+
+
+  tasks:
+
+    - name: public subnet route table
+      ec2_vpc_route_table:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ aws_region }}"
+        tags:
+          Name: public
+        subnets:
+          - "{{ subnet_public }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ internet_gateway }}"
+      register: public_route_table
+
+
+    - name: private subnet route table
+      ec2_vpc_route_table:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ aws_region }}"
+        tags:
+          Name: private
+        subnets:
+          - "{{ subnet_private }}"
+      register: private_route_table
+   

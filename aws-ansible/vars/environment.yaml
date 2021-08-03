@@ -1,14 +1,31 @@
 ---
-# region, image_id
+# region, zone, image_id, vpc_id, keypair
 
-ec2_region: us-west-2
+aws_region: us-west-2
+aws_zonea: us-west-2a
+aws_zoneb: us-west-2b
+vpc_id: vpc-0fd59fdc86ee0ce5e
+subnet_public: subnet-06b51e157ee35f4ed
+subnet_private: subnet-0cb468309b08ca2c7
+internet_gateway: igw-0275659b9cb013c77
 image_id: ami-03d5c68bab01f3496
+
+
+# Keypair
+
+dest1: /home/moisesyanes/Documents/aws-keypairs/admin-instance.pem
+dest2: /home/moisesyanes/Documents/aws-keypairs/web-instance.pem
+dest3: /home/moisesyanes/Documents/aws-keypairs/app-server.pem
+keypair1: admin-instance
+keypair2: web-instance
+keypair3: app-server
+
 
 # security groups to be created
 security_groups:
 
   - name: ssh
-    desc: the security group for ssh
+    desc: security group for ssh
     rules:
       - proto: tcp
         from_port: 22
@@ -16,11 +33,18 @@ security_groups:
         cidr_ip: 0.0.0.0/0
 
   - name: web
-    desc: the security group for the web server 
+    desc: security group for the web server 
     rules:
       - proto: tcp
-        from_port: "80"
-        to_port: "80"
+        from_port: 80
+        to_port: 80
+        cidr_ip: 0.0.0.0/0
+
+
+  - name: outbound
+    desc: segurity group for outbound
+    rules:
+      - proto: all
         cidr_ip: 0.0.0.0/0
 
   
@@ -29,9 +53,11 @@ security_groups:
 ec2_instances:
 
   - instance_type: t2.micro
-    key_name: admin
     image: "{{ image_id }}"
-    group: ['ssh']
+    keypair: "{{ keypair1 }}"
+    subnet: "{{ subnet_public }}"
+    assign_public_ip: yes
+    group: ['ssh','outbound']
     instance_tags: 
         Name: admin-instance
     exact_count: 1
@@ -39,9 +65,10 @@ ec2_instances:
         Name: admin-instance
 
   - instance_type: t2.micro
-    key_name: web
     image: "{{ image_id }}"
-    assign_public_ip: true
+    keypair: "{{ keypair2 }}"
+    subnet: "{{ subnet_public }}"
+    assign_public_ip: yes
     group: ['web','ssh'] 
     instance_tags: 
         Name: web-server
@@ -50,8 +77,9 @@ ec2_instances:
         Name: web-server
 
   - instance_type: t2.micro
-    key_name: app
     image: "{{ image_id }}"
+    keypair: "{{ keypair3 }}"
+    subnet: "{{ subnet_private }}"
     group: ['ssh'] 
     instance_tags: 
         Name: app-server
